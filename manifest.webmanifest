@@ -1,0 +1,11 @@
+{
+  "name": "Afinador Flamenco Profesional",
+  "short_name": "Afinador",
+  "description": "Afinador de guitarra flamenca con indicador visual de precisión.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#100c09",
+  "theme_color": "#120d09",
+  "orientation": "portrait-primary"
+}
