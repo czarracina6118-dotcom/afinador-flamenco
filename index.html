@@ -384,19 +384,20 @@ function yin(buffer,sampleRate){
      const hi=Math.min(maxTau,Math.ceil(expected/Math.pow(2,-150/1200)));
      let bestTau=-1,bestVal=1e9;
      for(let t=lo;t<=hi;t++){
-       if(cmnd[t]<bestVal){bestVal=cmnd[t];bestTau=t}
+       // Una frontera de ventana no es necesariamente un período real.
+       if(t>1 && t<maxTau && cmnd[t]<=cmnd[t-1] && cmnd[t]<cmnd[t+1] && cmnd[t]<bestVal){bestVal=cmnd[t];bestTau=t}
      }
      if(bestTau>0) candidates.push({tau:bestTau,val:bestVal,idx:i});
    });
    candidates.sort((a,b)=>a.val-b.val);
    if(!candidates.length || candidates[0].val>0.20)return null;
 
-   // Corrección de subarmónicos: una Mi aguda puede generar también un mínimo
-   // aparente cerca de La (aprox. 1/3 de su frecuencia). Si varios candidatos
-   // YIN son casi igual de válidos, elegimos el período más corto para evitar
-   // mostrar La cuando realmente está sonando la 1ª cuerda Mi.
-   const bestVal=candidates[0].val;
-   const plausible=candidates.filter(c=>c.val<=bestVal+0.045);
+   // Los múltiplos de un período también producen mínimos YIN. El redondeo
+   // a muestras enteras puede darles mejor puntuación que al fundamental,
+   // especialmente con muchos armónicos. Entre los mínimos que cumplen el
+   // umbral de calidad existente, elegimos el primer período válido; no lo
+   // descartamos por compararlo con un subarmónico (Mi1 / 3 ≈ La5).
+   const plausible=candidates.filter(c=>c.val<=0.20);
    plausible.sort((a,b)=>a.tau-b.tau);
    tau=plausible[0].tau;
  }else{
