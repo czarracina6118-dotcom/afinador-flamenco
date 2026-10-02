@@ -390,7 +390,15 @@ function yin(buffer,sampleRate){
    });
    candidates.sort((a,b)=>a.val-b.val);
    if(!candidates.length || candidates[0].val>0.20)return null;
-   tau=candidates[0].tau;
+
+   // Corrección de subarmónicos: una Mi aguda puede generar también un mínimo
+   // aparente cerca de La (aprox. 1/3 de su frecuencia). Si varios candidatos
+   // YIN son casi igual de válidos, elegimos el período más corto para evitar
+   // mostrar La cuando realmente está sonando la 1ª cuerda Mi.
+   const bestVal=candidates[0].val;
+   const plausible=candidates.filter(c=>c.val<=bestVal+0.045);
+   plausible.sort((a,b)=>a.tau-b.tau);
+   tau=plausible[0].tau;
  }else{
    for(let t=minTau;t<=maxTau;t++){
      if(cmnd[t]<threshold){

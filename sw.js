@@ -1,4 +1,4 @@
-const CACHE='afinador-flamenco-v4';
+const CACHE='afinador-flamenco-v5';
 const ASSETS=[
   './',
   './index.html',
