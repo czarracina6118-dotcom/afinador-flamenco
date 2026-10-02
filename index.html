@@ -258,7 +258,7 @@ function setMode(m){
 }
 guitarBtn.onclick=()=>setMode("guitar");
 chromaticBtn.onclick=()=>setMode("chromatic");
-tuningBtn.onclick=()=>{presetIndex=(presetIndex+1)%PRESETS.length;selected=-1;renderPreset();clearPitch()};
+tuningBtn.onclick=()=>{presetIndex=(presetIndex+1)%PRESETS.length;selected=-1;autoStringLock=-1;lastDetectedString=-1;stringVotes=0;stable=[];renderPreset();clearPitch()};
 
 function buildScale(){
  const scale=el("scale"),cx=50,cy=81;
@@ -322,7 +322,7 @@ function updateUI(f,quality){
    targetText=`Objetivo: ${display}${oct} · ${targetF.toFixed(2)} Hz`;
  }else{
    const targets=presetTargets();
-   active=selected>=0?selected:nearestGuitar(f).idx;
+   active=selected>=0?selected:(autoStringLock>=0?autoStringLock:nearestGuitar(f).idx);
    const t=targets[active];targetF=t.f;display=t.name;
    // En modo guitarra, el número grande junto a la nota es el NÚMERO DE CUERDA,
    // no la octava científica. Ej.: 5ª cuerda = La5; 1ª cuerda = Mi1.
