@@ -212,6 +212,7 @@ const PRESETS=[
 let mode="guitar",presetIndex=0,selected=-1;
 let audioCtx=null,stream=null,source=null,analyser=null,raf=null,running=false;
 let stable=[],lastAccepted=0,lastSignal=0,wasInTune=false,lastBeep=0;
+let autoStringLock=-1,lastDetectedString=-1,stringVotes=0;
 
 const el=id=>document.getElementById(id);
 const guitarBtn=el("guitarBtn"),chromaticBtn=el("chromaticBtn"),tuningBtn=el("tuningBtn"),
@@ -248,7 +249,7 @@ function renderStrings(activeAuto=null){
 function renderPegs(active=null){ return; }
 
 function setMode(m){
- mode=m;selected=-1;stable=[];
+ mode=m;selected=-1;stable=[];autoStringLock=-1;lastDetectedString=-1;stringVotes=0;
  guitarBtn.classList.toggle("active",m==="guitar");
  chromaticBtn.classList.toggle("active",m==="chromatic");
  tuningBtn.classList.toggle("hidden",m!=="guitar");
@@ -376,7 +377,7 @@ function yin(buffer,sampleRate){
  if(mode==="guitar"){
    const targets=presetTargets();
    const candidates=[];
-   const indexes=selected>=0?[selected]:targets.map((_,i)=>i);
+   const indexes=selected>=0?[selected]:(autoStringLock>=0?[autoStringLock]:targets.map((_,i)=>i));
    indexes.forEach(i=>{
      const expected=sampleRate/targets[i].f;
      // ±150 cents alrededor de la frecuencia nominal.
@@ -384,22 +385,22 @@ function yin(buffer,sampleRate){
      const hi=Math.min(maxTau,Math.ceil(expected/Math.pow(2,-150/1200)));
      let bestTau=-1,bestVal=1e9;
      for(let t=lo;t<=hi;t++){
-       // Una frontera de ventana no es necesariamente un período real.
-       if(t>1 && t<maxTau && cmnd[t]<=cmnd[t-1] && cmnd[t]<cmnd[t+1] && cmnd[t]<bestVal){bestVal=cmnd[t];bestTau=t}
+       if(cmnd[t]<bestVal){bestVal=cmnd[t];bestTau=t}
      }
      if(bestTau>0) candidates.push({tau:bestTau,val:bestVal,idx:i});
    });
    candidates.sort((a,b)=>a.val-b.val);
    if(!candidates.length || candidates[0].val>0.20)return null;
 
-   // Los múltiplos de un período también producen mínimos YIN. El redondeo
-   // a muestras enteras puede darles mejor puntuación que al fundamental,
-   // especialmente con muchos armónicos. Entre los mínimos que cumplen el
-   // umbral de calidad existente, elegimos el primer período válido; no lo
-   // descartamos por compararlo con un subarmónico (Mi1 / 3 ≈ La5).
-   const plausible=candidates.filter(c=>c.val<=0.20);
+   // Corrección de subarmónicos: una Mi aguda puede generar también un mínimo
+   // aparente cerca de La (aprox. 1/3 de su frecuencia). Si varios candidatos
+   // YIN son casi igual de válidos, elegimos el período más corto para evitar
+   // mostrar La cuando realmente está sonando la 1ª cuerda Mi.
+   const bestVal=candidates[0].val;
+   const plausible=candidates.filter(c=>c.val<=bestVal+0.045);
    plausible.sort((a,b)=>a.tau-b.tau);
    tau=plausible[0].tau;
+   var detectedString=plausible[0].idx;
  }else{
    for(let t=minTau;t<=maxTau;t++){
      if(cmnd[t]<threshold){
@@ -422,7 +423,7 @@ function yin(buffer,sampleRate){
    const ng=nearestGuitar(f);
    if(ng.dist>150)return null;
  }
- return quality>.62?{f,quality}:null;
+ return quality>.62?{f,quality,idx:(mode==="guitar"?detectedString:-1)}:null;
 }
 
 async function start(){
@@ -457,6 +458,14 @@ function loop(){
    // Hay señal válida: no permitimos que el temporizador de reposo borre
    // la lectura mientras estamos esperando las primeras muestras estables.
    lastSignal=now;
+   // v6: confirmar la misma cuerda 3 veces y bloquearla mientras siga sonando.
+   // Evita saltos de Si, Sol o Mi grave hacia notas producidas por armónicos.
+   if(mode==="guitar" && selected<0 && autoStringLock<0){
+     if(r.idx===lastDetectedString) stringVotes++;
+     else {lastDetectedString=r.idx;stringVotes=1;stable=[];}
+     if(stringVotes>=3) autoStringLock=r.idx;
+     if(autoStringLock<0){raf=requestAnimationFrame(loop);return;}
+   }
    stable.push(r.f);if(stable.length>5)stable.shift();
    if(stable.length>=2){
      // Mediana: responde rápido al ataque de la cuerda y rechaza una lectura espuria.
@@ -479,6 +488,7 @@ function loop(){
  // la aguja pegada a un extremo. Tras 0,7 s de silencio vuelve exactamente al centro.
  if(now-Math.max(lastAccepted,lastSignal)>700){
    stable=[];
+   autoStringLock=-1;lastDetectedString=-1;stringVotes=0;
    noteEl.textContent="—";octEl.textContent="";freqEl.textContent="Escuchando…";
    qualityEl.textContent="";targetEl.textContent=mode==="guitar"?"Esperando una cuerda estable…":"Esperando una nota estable…";
    centsEl.textContent="0,0 cents";
