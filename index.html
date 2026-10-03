@@ -213,6 +213,7 @@ let mode="guitar",presetIndex=0,selected=-1;
 let audioCtx=null,stream=null,source=null,analyser=null,raf=null,running=false;
 let stable=[],lastAccepted=0,lastSignal=0,wasInTune=false,lastBeep=0;
 let autoStringLock=-1,lastDetectedString=-1,stringVotes=0;
+let tunedLatch=false;
 
 const el=id=>document.getElementById(id);
 const guitarBtn=el("guitarBtn"),chromaticBtn=el("chromaticBtn"),tuningBtn=el("tuningBtn"),
@@ -249,7 +250,7 @@ function renderStrings(activeAuto=null){
 function renderPegs(active=null){ return; }
 
 function setMode(m){
- mode=m;selected=-1;stable=[];autoStringLock=-1;lastDetectedString=-1;stringVotes=0;
+ mode=m;selected=-1;stable=[];autoStringLock=-1;lastDetectedString=-1;stringVotes=0;tunedLatch=false;
  guitarBtn.classList.toggle("active",m==="guitar");
  chromaticBtn.classList.toggle("active",m==="chromatic");
  tuningBtn.classList.toggle("hidden",m!=="guitar");
@@ -258,7 +259,7 @@ function setMode(m){
 }
 guitarBtn.onclick=()=>setMode("guitar");
 chromaticBtn.onclick=()=>setMode("chromatic");
-tuningBtn.onclick=()=>{presetIndex=(presetIndex+1)%PRESETS.length;selected=-1;autoStringLock=-1;lastDetectedString=-1;stringVotes=0;stable=[];renderPreset();clearPitch()};
+tuningBtn.onclick=()=>{presetIndex=(presetIndex+1)%PRESETS.length;selected=-1;autoStringLock=-1;lastDetectedString=-1;stringVotes=0;tunedLatch=false;stable=[];renderPreset();clearPitch()};
 
 function buildScale(){
  const scale=el("scale"),cx=50,cy=81;
@@ -341,6 +342,7 @@ function updateUI(f,quality){
  arrowRight.classList.toggle("show",!tuned && cents<0);
  arrowLeft.classList.toggle("show",!tuned && cents>0);
  if(tuned){
+   tunedLatch=true;
    statusEl.textContent="✓ AFINADA PERFECTAMENTE";statusEl.className="status ok";
    if(!wasInTune)playBeep();
  }else if(cents<0){
@@ -465,7 +467,7 @@ async function start(){
    await audioCtx.resume();
    source=audioCtx.createMediaStreamSource(stream);
    analyser=audioCtx.createAnalyser();analyser.fftSize=8192;analyser.smoothingTimeConstant=0;
-   source.connect(analyser);running=true;lastAccepted=performance.now();lastSignal=performance.now();stable=[];autoStringLock=-1;lastDetectedString=-1;stringVotes=0;micBtn.textContent="Detener micrófono";micBtn.classList.add("stop");
+   source.connect(analyser);running=true;lastAccepted=performance.now();lastSignal=performance.now();stable=[];autoStringLock=-1;lastDetectedString=-1;stringVotes=0;tunedLatch=false;micBtn.textContent="Detener micrófono";micBtn.classList.add("stop");
    statusEl.textContent="Escuchando…";loop();
  }catch(e){
    alert("No se pudo acceder al micrófono. Abre la página desde HTTPS o localhost y permite el acceso al micrófono.");
@@ -496,6 +498,14 @@ function loop(){
      if(stringVotes>=3) autoStringLock=r.idx;
      if(autoStringLock<0){raf=requestAnimationFrame(loop);return;}
    }
+   // v10: después de alcanzar el centro, la cola débil de Sol o Si puede
+   // generar una lectura espuria en el borde. Se ignoran esos saltos residuales.
+   if(mode==="guitar" && tunedLatch && autoStringLock>=0){
+     const tf=presetTargets()[autoStringLock].f;
+     if(Math.abs(centsOff(r.f,tf))>6){
+       raf=requestAnimationFrame(loop);return;
+     }
+   }
    stable.push(r.f);if(stable.length>5)stable.shift();
    if(stable.length>=2){
      // Mediana: responde rápido al ataque de la cuerda y rechaza una lectura espuria.
@@ -518,7 +528,7 @@ function loop(){
  // la aguja pegada a un extremo. Tras 0,42 s de silencio libera la cuerda y vuelve exactamente al centro.
  if(now-Math.max(lastAccepted,lastSignal)>420){
    stable=[];
-   autoStringLock=-1;lastDetectedString=-1;stringVotes=0;
+   autoStringLock=-1;lastDetectedString=-1;stringVotes=0;tunedLatch=false;
    noteEl.textContent="—";octEl.textContent="";freqEl.textContent="Escuchando…";
    qualityEl.textContent="";targetEl.textContent=mode==="guitar"?"Esperando una cuerda estable…":"Esperando una nota estable…";
    centsEl.textContent="0,0 cents";
