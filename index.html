@@ -211,6 +211,7 @@ const PRESETS=[
 
 let mode="guitar",presetIndex=0,selected=-1;
 let audioCtx=null,stream=null,source=null,analyser=null,raf=null,running=false;
+let starting=false,startGeneration=0;
 let stable=[],lastAccepted=0,lastSignal=0,wasInTune=false,lastBeep=0;
 let autoStringLock=-1,lastDetectedString=-1,stringVotes=0;
 let tunedLatch=false;
@@ -459,24 +460,49 @@ function yin(buffer,sampleRate){
 }
 
 async function start(){
+ if(running || starting)return;
+ starting=true;
+ const generation=++startGeneration;
+ micBtn.disabled=true;
+ let requestedStream=null,requestedContext=null;
  try{
-   stream=await navigator.mediaDevices.getUserMedia({
+   requestedStream=await navigator.mediaDevices.getUserMedia({
      audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false
    });
-   audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-   await audioCtx.resume();
+   if(generation!==startGeneration){requestedStream.getTracks().forEach(t=>t.stop());return;}
+   requestedContext=new (window.AudioContext||window.webkitAudioContext)();
+   await requestedContext.resume();
+   if(generation!==startGeneration){
+     requestedStream.getTracks().forEach(t=>t.stop());
+     requestedContext.close().catch(()=>{});return;
+   }
+   stream=requestedStream;audioCtx=requestedContext;
    source=audioCtx.createMediaStreamSource(stream);
    analyser=audioCtx.createAnalyser();analyser.fftSize=8192;analyser.smoothingTimeConstant=0;
    source.connect(analyser);running=true;lastAccepted=performance.now();lastSignal=performance.now();stable=[];autoStringLock=-1;lastDetectedString=-1;stringVotes=0;tunedLatch=false;micBtn.textContent="Detener micrófono";micBtn.classList.add("stop");
    statusEl.textContent="Escuchando…";loop();
  }catch(e){
-   alert("No se pudo acceder al micrófono. Abre la página desde HTTPS o localhost y permite el acceso al micrófono.");
+   if(requestedStream)requestedStream.getTracks().forEach(t=>t.stop());
+   if(requestedContext && requestedContext.state!=="closed")requestedContext.close().catch(()=>{});
+   if(generation===startGeneration){
+     stop();
+     const reason=e && e.name ? e.name : "Error";
+     const advice=reason==="NotAllowedError" || reason==="PermissionDeniedError"
+       ? "Permite el micrófono en los ajustes de la aplicación y comprueba que el acceso general al micrófono esté activado."
+       : reason==="NotReadableError" || reason==="TrackStartError"
+       ? "No se pudo abrir el dispositivo de sonido. Cierra otras aplicaciones que estén usando el micrófono y vuelve a intentarlo."
+       : "Vuelve a abrir la aplicación e inténtalo de nuevo.";
+     alert("No se pudo activar el micrófono. "+advice+"\n\nDetalle: "+reason+(e && e.message ? " · "+e.message : ""));
+   }
+ }finally{
+   if(generation===startGeneration){starting=false;micBtn.disabled=false;}
  }
 }
 function stop(){
+ startGeneration++;starting=false;micBtn.disabled=false;
  running=false;if(raf)cancelAnimationFrame(raf);
  if(stream)stream.getTracks().forEach(t=>t.stop());
- if(audioCtx)audioCtx.close();
+ if(audioCtx)audioCtx.close().catch(()=>{});
  stream=source=analyser=audioCtx=null;micBtn.textContent="Activar micrófono";micBtn.classList.remove("stop");clearPitch();
 }
 micBtn.onclick=()=>running?stop():start();
@@ -543,7 +569,7 @@ function loop(){
 }
 </script>
 <script>
-if ("serviceWorker" in navigator) {
+if ("serviceWorker" in navigator && location.hostname!=="appassets.androidplatform.net") {
   window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(console.error));
 }
 </script>
