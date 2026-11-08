@@ -33,10 +33,10 @@ jobs:
         working-directory: android
         run: gradle --no-daemon assembleDebug lintDebug
       - name: Preparar APK
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk Afinador-Flamenco-1.0-prueba.apk
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk Afinador-Flamenco-1.1-prueba.apk
       - uses: actions/upload-artifact@v4
         with:
           name: Afinador-Flamenco-APK
-          path: Afinador-Flamenco-1.0-prueba.apk
+          path: Afinador-Flamenco-1.1-prueba.apk
           if-no-files-found: error
           retention-days: 30

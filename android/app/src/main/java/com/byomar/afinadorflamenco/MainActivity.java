@@ -36,6 +36,8 @@ public class MainActivity extends Activity {
         webView.setBackgroundColor(Color.BLACK);
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setDomStorageEnabled(true);
+        // AudioContext resumes after Android's asynchronous microphone permission dialog.
+        webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
         webView.getSettings().setAllowFileAccess(false);
         webView.getSettings().setAllowContentAccess(false);
         // Keep controls outside system bars, including Android 15 edge-to-edge.

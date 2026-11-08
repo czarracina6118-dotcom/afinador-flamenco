@@ -486,7 +486,13 @@ async function start(){
    if(requestedContext && requestedContext.state!=="closed")requestedContext.close().catch(()=>{});
    if(generation===startGeneration){
      stop();
-     alert("No se pudo activar el micrófono. Permite su uso en los ajustes de la aplicación o del navegador y vuelve a pulsar Activar micrófono.");
+     const reason=e && e.name ? e.name : "Error";
+     const advice=reason==="NotAllowedError" || reason==="PermissionDeniedError"
+       ? "Permite el micrófono en los ajustes de la aplicación y comprueba que el acceso general al micrófono esté activado."
+       : reason==="NotReadableError" || reason==="TrackStartError"
+       ? "No se pudo abrir el dispositivo de sonido. Cierra otras aplicaciones que estén usando el micrófono y vuelve a intentarlo."
+       : "Vuelve a abrir la aplicación e inténtalo de nuevo.";
+     alert("No se pudo activar el micrófono. "+advice+"\n\nDetalle: "+reason+(e && e.message ? " · "+e.message : ""));
    }
  }finally{
    if(generation===startGeneration){starting=false;micBtn.disabled=false;}

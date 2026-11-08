@@ -10,7 +10,7 @@ de la aplicación y hay que activarlo de nuevo al volver.
 1. Abrir **Actions → Generar APK del afinador** en GitHub.
 2. Entrar en una ejecución terminada con marca verde.
 3. En **Artifacts**, descargar **Afinador-Flamenco-APK** (requiere iniciar sesión).
-4. Descomprimir el ZIP e instalar `Afinador-Flamenco-1.0-prueba.apk`.
+4. Descomprimir el ZIP e instalar `Afinador-Flamenco-1.1-prueba.apk`.
 5. Permitir la instalación desde esa aplicación si Android lo solicita.
 6. Abrir el afinador, activar el micrófono y conceder el permiso.
 

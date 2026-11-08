@@ -7,8 +7,8 @@ android {
         applicationId 'com.byomar.afinadorflamenco'
         minSdk 26
         targetSdk 35
-        versionCode 1
-        versionName '1.0-prueba'
+        versionCode 2
+        versionName '1.1-prueba'
     }
     sourceSets.main.assets.srcDir layout.buildDirectory.dir('generated/web')
     sourceSets.main.res.srcDir layout.buildDirectory.dir('generated/icons')
